@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
-# bin/compile <build-dir> <cache-dir> <env-dir>
+# bin/compile <build-dir> <cache-dir>
+
+# Thanks to https://github.com/mfine/heroku-buildpack-stack/blob/master/bin/compile
+# for the inspiration.
 
 set -e
 set -o pipefail
 
-# Heroku-provided params
 BUILD_DIR="$1"
 CACHE_DIR="$2"
-ENV_DIR="$3"
 
 function speak (){
   echo "-----> $(date -u '+%Y-%m-%d_%H:%M:%S') $1"
@@ -15,52 +16,10 @@ function speak (){
 
 speak "Starting..."
 
-BLACKLIST_REGEX="^(PATH|GIT_DIR|CPATH|CPPATH|LD_PRELOAD|LIBRARY_PATH)$"
-if [ -d "$ENV_DIR" ]; then
-  speak "Exporting config vars"
-  for e in $(ls "$ENV_DIR"); do
-    echo "$e" | grep -qvE "$BLACKLIST_REGEX" &&
-    export "$e=$(cat $ENV_DIR/$e)"
-    :
-  done
-fi
-
-WORK_DIR=/app
-cp -Rp "$BUILD_DIR/." "$WORK_DIR"
-mkdir -p "$WORK_DIR/vendor/bin"
-mkdir -p "$WORK_DIR/vendor/ghc-libs"
-
-PROFILE_DIR="$BUILD_DIR/.profile.d"
-PROFILE_PATH="$PROFILE_DIR/stack.sh"
-mkdir -p "$PROFILE_DIR"
-
-# Usage: $ set-env key value
-function set-env (){
-  echo "export $1=$2" >> "$PROFILE_PATH"
-}
-
-# Usage: $ set-default-env key value
-function set-default-env (){
-  echo "export $1=\${$1:-$2}" >> "$PROFILE_PATH"
-}
-
 export LANG=en_US.UTF-8
-export LIBRARY_PATH=$WORK_DIR/vendor/ghc-libs:/usr/lib:$LIBRARY_PATH
-export LD_LIBRARY_PATH=$LIBRARY_PATH
-export PATH=$WORK_DIR/.local/bin:$WORK_DIR/vendor/bin:$PATH
+# Make sure all the stack stuff ends up in the cache as well
+# This will allow for faster compiles on subsequent pushes.
 export STACK_ROOT=$CACHE_DIR/.stack
-
-########## gmp #####################################################
-LIBGMP_VER=${LIBGMP_VER:-6.0.0a}
-LIBGMP_URL=${LIBGMP_URL:-https://s3.amazonaws.com/heroku-ghc/heroku-libgmp-"$LIBGMP_VER".tar.gz}
-LIBGMP_DIR="$CACHE_DIR/libgmp-$LIBGMP_VER"
-if [ ! -e "$LIBGMP_DIR" ]; then
-  speak "Installing libgmp-$LIBGMP_VER into cache"
-  mkdir -p "$LIBGMP_DIR"
-  curl -# -L "$LIBGMP_URL" | tar xz -C "$LIBGMP_DIR"
-fi
-speak "Restoring $LIBGMP_VER files from cache"
-cp -Rp "$LIBGMP_DIR/ghc-libs/." "$WORK_DIR/vendor/ghc-libs"
 
 ########## stack exe ###############################################
 STACK_VER=${STACK_VER:-1.2.0}
@@ -71,44 +30,31 @@ if [ ! -e "$STACK_EXE" ]; then
   speak "Downloading stack-$STACK_VER"
   mkdir -p "$STACK_DIR"
   curl -# -L "$STACK_URL" | tar xz -C "$STACK_DIR" --strip-components=1
-fi
-speak "Restoring stack-$STACK_VER"
-cp "$STACK_EXE" "$WORK_DIR/vendor/bin/stack"
-chmod a+x "$WORK_DIR/vendor/bin/stack"
-
-########## stack vars ##############################################
-if [ -d "$ENV_DIR" ]; then
-  speak "Substituting stack vars"
-  perl -p -i -e 's/\{\{([^}]+)\}\}/defined$ENV{$1}?$ENV{$1}:$&/eg' "$BUILD_DIR/stack.yaml"
+  chmod u+x $STACK_EXE
 fi
 
 ########## project build ###########################################
-SANDBOX_DIR="$CACHE_DIR/.stack-work"
+STACK_DIR=".stack-work"
+SANDBOX_DIR="$CACHE_DIR/$STACK_DIR"
 if [ -e "$SANDBOX_DIR" ]; then
-    speak "Restoring .stack-work"
-    cp -Rp "$SANDBOX_DIR" "$WORK_DIR"
-else
-    mkdir -p "$SANDBOX_DIR"
+    speak "Restoring $STACK_DIR to $BUILD_DIR"
+    cp -Rp "$SANDBOX_DIR" "$BUILD_DIR"
 fi
 
 speak "Running stack"
-cd "$WORK_DIR"
-stack setup
-stack build --fast --copy-bins
-
-# Set context environment variables.
-set-env PATH "$WORK_DIR/.local/bin:$PATH"
-set-default-env LIBRARY_PATH "$WORK_DIR/vendor/ghc-libs:/usr/lib"
-set-default-env LD_LIBRARY_PATH "$WORK_DIR/vendor/ghc-libs:/usr/lib"
+cd "$BUILD_DIR"
+$STACK_EXE setup
+$STACK_EXE build --fast
 
 speak "Making stack binaries available"
-mkdir -p "$BUILD_DIR/vendor"
-mkdir -p "$BUILD_DIR/.local"
-mv "$WORK_DIR/vendor/ghc-libs" "$BUILD_DIR/vendor"
-mv "$WORK_DIR/.local/bin" "$BUILD_DIR/.local"
+mkdir -p "$BUILD_DIR/bin"
+mv $($STACK_EXE path --local-install-root)/bin/* $BUILD_DIR/bin
+
+speak "Writing out start script"
+echo -e "---\ndefault_process_types:\n  web: /home/vcap/app/bin/`ls $BUILD_DIR/bin`" > $BUILD_DIR/startScript.yml
 
 speak "Caching .stack-work"
-rsync -avq "$WORK_DIR/.stack-work/" "$SANDBOX_DIR"
-mv "$WORK_DIR/.stack-work" "$BUILD_DIR"
+rm -rf $SANDBOX_DIR
+cp -Rp $BUILD_DIR/$STACK_DIR $SANDBOX_DIR
 
 speak "Finished!"

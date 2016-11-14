@@ -1,41 +1,35 @@
-# [Heroku Buildpack for Stack][1]
+# [Cloud Foundry Buildpack for Stack based Haskell projects][1]
 
-[Heroku buildpack][2] for [Stack][3]. Based on the excellent [heroku-buildpack-ghc][4]
+[Cloud Foundry buildpack][2] for [Stack][3] based Haskell projects. 
+Based on the excellent [heroku-buildpack-stack][4].
 
-### Usage
+## Usage
 
-Create an app with this buildpack:
+Push an app with this buildpack:
 
-    $ heroku create --buildpack https://github.com/mfine/heroku-buildpack-stack.git
+    $ cf push haskell-api -b https://github.com/mikegehard/cloudfoundry-buildpack-stack -m 2GB
 
-Set this buildpack on an existing app:
+**Note: Best to set the memory for the application at 2GB. This makes sure the compilation VM
+has enough memory to compile the Haskell.**
 
-    $ heroku buildpacks:set https://github.com/mfine/heroku-buildpack-stack
+## App constraints
 
-### Templating stack.yaml
+The application must pull the port to use from the `PORT` environment variable.
 
-To avoid committing secrets into `stack.yaml` for access to private
-repos, an app's config vars values can be substituted for tags
-enclosed in double brackets. For example, given a `stack.yaml` containing:
+An example [Scotty][5] app:
 
-    packages:
-    -location:
-        git: https://mfine:{{GITPASS}}@github.com/mfine/heroku-buildpack-stack.git
+```
+main :: IO ()
+main = do
+    putStrLn "Starting server..."
+    port <- lookupEnv "PORT"
+    scotty (maybe 3000 read port) $ do
+        WebApp.routes
+```
 
-and an application with config vars:
 
-    $ heroku config -app calm-storm-51595
-    === murmuring-beyond-51595 Config Vars
-    GITPASS: abc123
-    $
-
-before compilation, the `stack.yaml` will be substituted as follows:
-
-    packages:
-    -location:
-        git: https://mfine:abc123@github.com/mfine/heroku-buildpack-stack.git
-
-[1]: https://github.com/mfine/heroku-buildpack-stack
-[2]: http://devcenter.heroku.com/articles/buildpacks
+[1]: https://github.com/mikegehard/cloudfoundry-buildpack-stack
+[2]: https://docs.cloudfoundry.org/buildpacks/custom.html
 [3]: https://github.com/commercialhaskell/stack
-[4]: https://github.com/begriffs/heroku-buildpack-ghc
+[4]: https://github.com/mfine/heroku-buildpack-stack
+[5]: https://github.com/scotty-web/scotty
