@@ -27,9 +27,12 @@ main = do
         WebApp.routes
 ```
 
+See [here][6] for source code of an example app deployed to [PWS][7].
 
 [1]: https://github.com/mikegehard/cloudfoundry-buildpack-stack
 [2]: https://docs.cloudfoundry.org/buildpacks/custom.html
 [3]: https://github.com/commercialhaskell/stack
 [4]: https://github.com/mfine/heroku-buildpack-stack
 [5]: https://github.com/scotty-web/scotty
+[6]: https://github.com/mikegehard/haskell-api
+[7]: https://run.pivotal.io
