@@ -10,7 +10,7 @@ Push an app with this buildpack:
     $ cf push haskell-api -b https://github.com/mikegehard/cloudfoundry-buildpack-stack -m 2GB
 
 **Note: Best to set the memory for the application at 2GB. This makes sure the compilation VM
-has enough memory to compile the Haskell.**
+has enough memory to compile the Haskell. I am looking into ways to eliminate this requirement by setting the compilation container memory independently from the running container memory.**
 
 ## App constraints
 
