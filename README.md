@@ -5,9 +5,9 @@ Based on the excellent [heroku-buildpack-stack][4].
 
 ## Usage
 
-Push an app with this buildpack:
+Push an app with version 1.0 of this buildpack:
 
-    $ cf push haskell-api -b https://github.com/mikegehard/cloudfoundry-buildpack-stack -m 2GB
+    $ cf push haskell-api -b  https://github.com/mikegehard/cloudfoundry-buildpack-haskell-stack#1.0 -m 2GB
 
 **Note: Best to set the memory for the application at 2GB. This makes sure the compilation VM
 has enough memory to compile the Haskell. I am looking into ways to eliminate this requirement by setting the compilation container memory independently from the running container memory.**
