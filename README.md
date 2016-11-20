@@ -9,8 +9,7 @@ Push an app with version 1.0 of this buildpack:
 
     $ cf push haskell-api -b  https://github.com/mikegehard/cloudfoundry-buildpack-haskell-stack#1.0 -m 2GB
 
-**Note: Best to set the memory for the application at 2GB. This makes sure the compilation VM
-has enough memory to compile the Haskell. I am looking into ways to eliminate this requirement by setting the compilation container memory independently from the running container memory.**
+**Note: The first push of an application requires a lot of memory to prime the Stack cache with all of the libraries. It is recommended that you set the app memory to 2GB for the first push and scale it back down after the push completes. You may also need to scale up before subsequent pushes and scale down after those pushes complete. It seems that the v3 Cloud Controller API will allow for setting the compilation container memory differently than the runtime container memory so this may go away in the future.**
 
 ## App constraints
 
