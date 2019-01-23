@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# bin/compile <build-dir> <cache-dir>
+
+#sync output
+
+$stdout.sync = true
+
+build_path = ARGV[0]
+cache_path = ARGV[1]
+deps_path = ARGV[2]
+index = ARGV[3]
+
+echo "Supply"
